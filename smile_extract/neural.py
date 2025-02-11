@@ -68,11 +68,13 @@ def remove_low_firing_units(spike_times: pd.DataFrame, min_firing_rate: float=0.
         ['timestamp']
         .agg('count')
         .apply(lambda x: x / recording_duration.total_seconds())
+        .rename('average firing rate')
     )
 
     num_units = len(average_firing_rate)
     num_units_removed = (average_firing_rate <= min_firing_rate).sum()
     logger.info(f"Removing {num_units_removed} of {num_units} units with average firing rate less than {min_firing_rate} Hz.")
+    logger.debug(f"Units removed:\n {average_firing_rate[average_firing_rate <= min_firing_rate]}")
 
     return (
         spike_times
@@ -86,35 +88,23 @@ def remove_low_firing_units(spike_times: pd.DataFrame, min_firing_rate: float=0.
 def remove_correlated_units(spike_times: pd.DataFrame, max_spike_coincidence: float=0.2) -> pd.DataFrame:
     binned_spikes = bin_spikes(spike_times, bin_size='1ms')
 
-    return spike_times
+    corr_mat = np.corrcoef(binned_spikes.T)
+    coincident_unit_idx = np.any(np.tril(corr_mat,k=-1) > max_spike_coincidence, axis=1)
+    coincident_units = binned_spikes.columns[coincident_unit_idx]
 
-def remove_correlated_units(td, arrays=['M1','PMd','MC'], verbose=False):
-    '''
-    Removes correlated units from TD, given array name
+    num_total_units = binned_spikes.shape[1]
+    num_units_removed = len(coincident_units)
+    logger.info(f"Removing {num_units_removed} of {num_total_units} units with spike coincidence greater than {max_spike_coincidence}.")
+    logger.debug(f"Units removed:\n {coincident_units}")
 
-    TODO: change this to remove neuron pairs that have 1ms correlation > 0.2
-    '''
-
-    # calculate correlation matrix
-    for array in arrays:
-        unit_guide = td.loc[td.index[0],f'{array}_unit_guide']
-        if unit_guide.shape[0] == 0:
-            continue
-
-        # calculate correlation matrix
-        corr_mat = np.corrcoef(np.row_stack(td[f'{array}_spikes']).T)
-
-        # find correlated units
-        corr_units = np.any(np.tril(corr_mat,k=-1) > 0.2, axis=1)
-
-        # remove correlated units (TODO: possibly only remove one neuron at a time)
-        td =  mask_neural_data(td, array, ~corr_units)
-
-        # verbose
-        if verbose:
-            print(f'{array}: {np.sum(corr_units)} correlated units removed')
-
-    return td
+    return (
+        spike_times
+        .reset_index()
+        .set_index(['channel','unit'])
+        .drop(index=coincident_units)
+        .reset_index()
+        .set_index(['trial_id','snippet_id'])
+    )
 
 def collapse_channel_unit_index(binned_spikes: pd.DataFrame) -> pd.DataFrame:
     assert binned_spikes.columns.names == ['channel','unit'], "Columns must be MultiIndex with channel and unit levels."
