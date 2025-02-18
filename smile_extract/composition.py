@@ -37,7 +37,7 @@ def compose_session_frame(
         .reset_index(level='time')
         .assign(**meta)
         .set_index('time',append=True)
-        [['monkey','date_time','block','task','result','state','hand position','motor cortex']]
+        [['monkey','session date','block','trial datetime','task','result','state','hand position','motor cortex']]
     )
 
 def concat_trial_func_results(trial_func, smile_data: list, **func_kwargs) -> pd.DataFrame:

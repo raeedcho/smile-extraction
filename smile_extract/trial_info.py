@@ -6,12 +6,20 @@ import pandas as pd
 def get_trial_id(smile_trial: dict) -> int:
     return int(smile_trial['Overview']['trialNumber'].replace('Trial',''))
 
-def get_trial_datetime_str(smile_trial: dict) -> str:
-    return (
+def get_trial_datetime(smile_trial: dict) -> str:
+    return pd.to_datetime(
         datetime.strptime(
             str(int(smile_trial['Overview']['date'])),
             '%Y%m%d%H%M%S',
         ).strftime('%Y-%m-%d %H:%M:%S')
+    )
+
+def get_trial_session_date(smile_trial: dict) -> str:
+    return pd.to_datetime(
+        datetime.strptime(
+            str(int(smile_trial['Overview']['date'])),
+            '%Y%m%d%H%M%S',
+        ).strftime('%Y-%m-%d')
     )
 
 def get_trial_result(smile_trial: dict) -> str:
@@ -49,7 +57,8 @@ def get_smile_meta(smile_data: list, block: str='', **kwargs) -> pd.DataFrame:
         [
             {
                 'monkey': smile_trial['Overview']['subjectName'],
-                'date_time': get_trial_datetime_str(smile_trial),
+                'session date': get_trial_session_date(smile_trial),
+                'trial datetime': get_trial_datetime(smile_trial),
                 'task': get_trial_task(smile_trial),
                 'result': get_trial_result(smile_trial),
                 'block': block,
