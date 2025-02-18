@@ -1,8 +1,6 @@
 import scipy.io
 import pandas as pd
 
-path = '/Users/raeed/Library/CloudStorage/OneDrive-UniversityofPittsburgh/0-projects/cst-rtt/cst-data/preTD/Dwight/2025-01-07/Dwight_2025-01-07_reward-type_medium_cst-rtt-dco_sorted.mat'
-
 def direct_load_smile_data(filename: str) -> list:
     try:
         mat = scipy.io.loadmat(filename, simplify_cells=True)
