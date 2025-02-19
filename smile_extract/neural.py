@@ -54,7 +54,7 @@ def bin_spikes(spike_times: pd.DataFrame, bin_size: str='10ms') -> pd.DataFrame:
 
     return spike_counts
 
-def remove_low_firing_units(spike_times: pd.DataFrame, min_firing_rate: float=0.1) -> pd.DataFrame:
+def remove_abnormal_firing_units(spike_times: pd.DataFrame, min_firing_rate: float=0.1, rate_artifact_threshold: float=350) -> pd.DataFrame:
     recording_duration = (
         spike_times
         .groupby('trial_id')
@@ -72,15 +72,18 @@ def remove_low_firing_units(spike_times: pd.DataFrame, min_firing_rate: float=0.
     )
 
     num_units = len(average_firing_rate)
-    num_units_removed = (average_firing_rate <= min_firing_rate).sum()
-    logger.info(f"Removing {num_units_removed} of {num_units} units with average firing rate less than {min_firing_rate} Hz.")
-    logger.debug(f"Units removed:\n {average_firing_rate[average_firing_rate <= min_firing_rate]}")
+    num_units_below_min = (average_firing_rate <= min_firing_rate).sum()
+    num_units_above_max = (average_firing_rate >= rate_artifact_threshold).sum()
+    logger.info(f"Found {num_units_below_min} of {num_units} units with average firing rate less than {min_firing_rate} Hz.")
+    logger.debug(f"Units below minimum firing rate:\n {average_firing_rate[average_firing_rate <= min_firing_rate]}")
+    logger.info(f"Found {num_units_above_max} of {num_units} units with average firing rate greater than {rate_artifact_threshold} Hz.")
+    logger.debug(f"Units above maximum firing rate:\n {average_firing_rate[average_firing_rate >= rate_artifact_threshold]}")
 
     return (
         spike_times
         .reset_index()
         .set_index(['channel','unit'])
-        .loc[average_firing_rate > min_firing_rate]
+        .loc[(average_firing_rate > min_firing_rate) & (average_firing_rate < rate_artifact_threshold)]
         .reset_index()
         .set_index(['trial_id','snippet_id'])
     )
@@ -105,6 +108,25 @@ def remove_correlated_units(spike_times: pd.DataFrame, max_spike_coincidence: fl
         .reset_index()
         .set_index(['trial_id','snippet_id'])
     )
+
+def remove_artifact_trials(spike_times: pd.DataFrame, rate_artifact_threshold: float=350) -> pd.DataFrame:
+    binned_spikes = bin_spikes(spike_times, bin_size='100ms') / 0.1
+
+    # artifact_trials = binned_spikes.max(axis=1).groupby('trial_id').max() > rate_artifact_threshold
+    max_firing_rates = (
+        binned_spikes
+        .groupby('trial_id')
+        .max()
+        .max(axis=1)
+        .rename('max firing rate')
+    )
+    artifact_trials = max_firing_rates > rate_artifact_threshold
+    num_trials = len(artifact_trials)
+    num_trials_removed = artifact_trials.sum()
+    logger.info(f"Removing {num_trials_removed} of {num_trials} trials with firing rate artifact above {rate_artifact_threshold} Hz.")
+    logger.debug(f"Trials removed:\n {artifact_trials[artifact_trials].index}")
+
+    return spike_times.drop(index=artifact_trials[artifact_trials].index, level='trial_id')
 
 def collapse_channel_unit_index(binned_spikes: pd.DataFrame) -> pd.DataFrame:
     assert binned_spikes.columns.names == ['channel','unit'], "Columns must be MultiIndex with channel and unit levels."

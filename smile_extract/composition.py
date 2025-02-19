@@ -6,6 +6,7 @@ def compose_session_frame(
         bin_size: str='10ms',
         min_firing_rate: float=0.1,
         max_spike_coincidence: float=0.2,
+        rate_artifact_threshold: float=350,
         **kwargs,
 ) -> pd.DataFrame:
     # meta
@@ -19,7 +20,8 @@ def compose_session_frame(
     )
     binned_spikes = (
         get_smile_spike_times(smile_data)
-        .pipe(neural.remove_low_firing_units, min_firing_rate=min_firing_rate)
+        .pipe(neural.remove_abnormal_firing_units, min_firing_rate=min_firing_rate, rate_artifact_threshold=rate_artifact_threshold)
+        .pipe(neural.remove_artifact_trials, rate_artifact_threshold=rate_artifact_threshold)
         .pipe(neural.remove_correlated_units, max_spike_coincidence=max_spike_coincidence)
         .pipe(neural.bin_spikes, bin_size=bin_size)
         .pipe(neural.collapse_channel_unit_index)
