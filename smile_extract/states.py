@@ -6,6 +6,26 @@ def get_trial_state_table(smile_trial: dict) -> pd.DataFrame:
     # )
     pass
 
+def get_trial_state_transition_table(smile_trial: dict) -> pd.DataFrame:
+    state_transition_table = (
+        pd.DataFrame(smile_trial['Parameters']['StateTable'])
+        .rename(columns={
+            'stateName':'state',
+        })
+        .assign(**{
+            'pass state': lambda x: x['windowPassState'].map(lambda y: x['state'].iloc[y-1]),
+            'fail state': lambda x: x['windowFailState'].map(lambda y: x['state'].iloc[y-1]),
+            'interval': lambda x: x['Interval'].map(lambda y: y['name']),
+            'target': lambda x: x['Hand'].map(lambda y: y['targetName']),
+            'target window check type': lambda x: x['Hand'].map(lambda y: y['targetWindowCheckType']),
+            'pass condition': lambda x: x['target window check type'].map({1:'enter',2:'hold'}),
+        })
+        .set_index('state')
+        [['target','pass condition','interval','pass state','fail state']]
+    )
+
+    return state_transition_table
+
 def get_trial_events(smile_trial: dict) -> pd.DataFrame:
     def get_state_name(state_id):
         if state_id == -1:
