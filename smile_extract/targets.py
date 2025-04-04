@@ -25,4 +25,14 @@ def parse_smile_meta(td, trial, meta={}, num_random_targs=8):
     return td
 
 def get_trial_targets(smile_trial: dict) -> pd.DataFrame:
-    pass
+    target_table = (
+        pd.DataFrame(
+            smile_trial['Parameters']['TrialTargets']['window'],
+            columns=['x','y','z','radius','height','depth'],
+            index = smile_trial['Parameters']['TrialTargets']['names']
+        )
+        .drop_duplicates()
+        [['x','y','z','radius']]
+    )
+
+    return target_table
