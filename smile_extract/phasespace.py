@@ -16,8 +16,8 @@ def get_trial_hand_data(
         reference_loc = np.array([0,0,0])
 
     phasespace_data = smile_trial['TrialData']['Marker']['rawPositions']
-    if phasespace_data.shape[0] == 0:
-        return pd.DataFrame()
+    if phasespace_data.shape[0] == 0 or phasespace_data.ndim != 2:
+        return pd.DataFrame(index=pd.Index([],name='time'),columns=pd.Index(['x','y','z'],name='signal'))
 
     phasespace_freq = smile_trial['TrialData']['Marker']['frequency']
     marker_position = (phasespace_data[:,1:4] - reference_loc)# * [1,-1,1] # flip y-axis for data collected in rig 1 before 2023-10-01
