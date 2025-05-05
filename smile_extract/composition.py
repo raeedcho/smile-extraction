@@ -44,10 +44,26 @@ def compose_session_frame(
 
 def concat_trial_func_results(trial_func, smile_data: list, **func_kwargs) -> pd.DataFrame:
     return pd.concat(
-        [trial_func(trial,**func_kwargs) for trial in smile_data],
+        {trial_info.get_trial_id(trial): trial_func(trial,**func_kwargs) for trial in smile_data},
         axis=0,
-        keys=[trial_info.get_trial_id(trial) for trial in smile_data],
         names=['trial_id'],
+    )
+
+def concat_block_func_results(block_func, smile_data_blocks: dict[str,list], **func_kwargs) -> pd.DataFrame:
+    return pd.concat(
+        {block: block_func(block_data,**func_kwargs) for block,block_data in smile_data_blocks.items()},
+        axis=0,
+        names=['block'],
+    )
+
+def concat_block_trial_func_results(trial_func, smile_data_blocks: dict[str,list], **func_kwargs) -> pd.DataFrame:
+    return pd.concat(
+        {
+            block: concat_trial_func_results(trial_func, block_data, **func_kwargs)
+            for block,block_data in smile_data_blocks.items()
+        },
+        axis=0,
+        names=['block'],
     )
 
 def get_smile_spike_times(smile_data: list, keep_sorted_only=True) -> pd.DataFrame:
