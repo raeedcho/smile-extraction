@@ -52,7 +52,7 @@ def get_trial_task(smile_trial: dict) -> str:
 
     return task
 
-def get_smile_meta(smile_data: list, block: str='', **kwargs) -> pd.DataFrame:
+def get_smile_meta(smile_data: list, **kwargs) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
@@ -61,8 +61,7 @@ def get_smile_meta(smile_data: list, block: str='', **kwargs) -> pd.DataFrame:
                 'trial datetime': get_trial_datetime(smile_trial),
                 'task': get_trial_task(smile_trial),
                 'result': get_trial_result(smile_trial),
-                'block': block,
-            }
+            } | kwargs
             for smile_trial in smile_data
         ],
         index=pd.Index(
