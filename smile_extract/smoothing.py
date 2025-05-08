@@ -10,7 +10,7 @@ def norm_gauss_window(bin_length, std):
     Parameters
     ----------
     bin_length : float
-        binning length of the array we want to smooth in ms
+        binning length of the array we want to smooth in s
     std : float
         standard deviation of the window
         use hw_to_std to calculate std based from half-width
