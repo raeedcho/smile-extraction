@@ -54,6 +54,8 @@ def get_trial_states(smile_trial: dict, bin_size: str='10ms') -> pd.Series:
         get_trial_events(smile_trial)
         .reset_index(level='event')
         .set_index('time')
+        .groupby('time')
+        .last()
         .resample(bin_size)
         .ffill()
         .squeeze()
