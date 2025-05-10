@@ -27,20 +27,32 @@ def compose_session_frame(
         .pipe(neural.collapse_channel_unit_index)
     )
     
-    # targets
-    return (
+    return compose_from_frames(
+        meta,
+        {
+            'state': state_list,
+            'hand position': hand_pos,
+            'motor cortex': binned_spikes,
+        },
+    )
+
+def compose_from_frames(meta: pd.DataFrame, trialframe_dict: dict[str,pd.DataFrame]) -> pd.DataFrame:
+    trialframe = (
         pd.concat(
-            [state_list,hand_pos,binned_spikes],
+            {
+                key: frame
+                for key, frame in trialframe_dict.items()
+            },
             axis=1,
             join='inner',
-            keys=['state','hand position','motor cortex'],
             names=['channel','signal'],
         )
         .reset_index(level='time')
         .assign(**meta)
         .set_index('time',append=True)
-        [['monkey','session date','block','trial datetime','task','result','state','hand position','motor cortex']]
+        [['monkey','session date','trial datetime','task','result','state','hand position','motor cortex']]
     )
+    return trialframe
 
 def concat_trial_func_results(trial_func, smile_data: list, **func_kwargs) -> pd.DataFrame:
     return pd.concat(
