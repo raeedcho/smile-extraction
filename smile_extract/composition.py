@@ -37,6 +37,8 @@ def compose_session_frame(
     )
 
 def compose_from_frames(meta: pd.DataFrame, trialframe_dict: dict[str,pd.DataFrame]) -> pd.DataFrame:
+    metacols = meta.columns.tolist()
+    trialframe_signals = list(trialframe_dict.keys())
     trialframe = (
         pd.concat(
             {
@@ -45,12 +47,12 @@ def compose_from_frames(meta: pd.DataFrame, trialframe_dict: dict[str,pd.DataFra
             },
             axis=1,
             join='inner',
-            names=['channel','signal'],
+            names=['signal','channel'],
         )
         .reset_index(level='time')
         .assign(**meta)
         .set_index('time',append=True)
-        [['monkey','session date','trial datetime','task','result','state','hand position','motor cortex']]
+        [metacols + trialframe_signals]
     )
     return trialframe
 
