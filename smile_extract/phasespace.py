@@ -2,13 +2,14 @@ import pandas as pd
 import numpy as np
 from scipy.signal import resample_poly
 import fractions
+from typing import Optional
 
 # Phasespace data
 def get_trial_hand_data(
         smile_trial: dict,
         resample_window: tuple=('kaiser',20.0),
         final_sampling_rate: float=1000,
-        reference_loc:np.array = None,
+        reference_loc: Optional[np.ndarray] = None,
         **kwargs,
     ) -> pd.DataFrame:
 
@@ -33,7 +34,7 @@ def get_trial_hand_data(
     marker_pos_interp = (
         pd.DataFrame(
             marker_position,
-            columns=pd.Index(['x','y','z'],name='signal'),
+            columns=pd.Index(['x','y','z'],name='channel'),
             index=pd.Index(framevec,name='phasespace_frame')
         )
         .reindex(full_framevec)
@@ -59,7 +60,7 @@ def convert_phasespace_frame_to_time(framevec, smile_trial):
 def get_trial_eye_data(smile_trial: dict) -> pd.DataFrame:
     pass
 
-def sig_resample(df: pd.DataFrame, new_sampling_rate: float, old_sampling_rate: float=None, **kwargs)->pd.DataFrame:
+def sig_resample(df: pd.DataFrame, new_sampling_rate: float, old_sampling_rate: Optional[float]=None, **kwargs)->pd.DataFrame:
     assert type(df.index) is pd.TimedeltaIndex, "Index must be a TimedeltaIndex."
 
     if old_sampling_rate is None:
@@ -112,5 +113,51 @@ def interpolating_reindex(df, new_index):
     )
 
 # CST error cursor
-def get_trial_cst_cursor(smile_trial: dict) -> pd.DataFrame:
-    pass
+def get_trial_cst_cursor(
+        smile_trial: dict,
+        resample_window: tuple=('kaiser',20.0),
+        final_sampling_rate: float=1000,
+        reference_loc: Optional[np.ndarray] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
+
+    if reference_loc is None:
+        reference_loc = np.array([0,0,0])
+
+    cursor_data = smile_trial['TrialData']['Marker']['errorCursor']
+    if cursor_data is None or cursor_data.shape[0] == 0 or cursor_data.ndim != 2:
+        return pd.DataFrame(
+            index=pd.Index([], name='time'),
+            columns=pd.Index(['x', 'y', 'z'], name='signal')
+        )
+
+    cursor_timevec = pd.to_timedelta(
+        cursor_data[:,3],
+        unit='ms',
+    )
+    sample_spacing = (
+        cursor_timevec
+        .diff()
+        .value_counts()
+        .idxmax()
+        .total_seconds()
+    )
+    final_timevec = pd.timedelta_range(
+        start=0,
+        end=cursor_timevec[-1],
+        freq=pd.to_timedelta(1/final_sampling_rate, unit='s'),
+        name='time',
+    )
+
+    cursor_position = (
+        pd.DataFrame(
+            cursor_data[:,:3]-reference_loc,
+            columns=pd.Index(['x','y','z'],name='channel'),
+            index=pd.Index(cursor_timevec,name='time'),
+        )
+        .pipe(sig_resample, final_sampling_rate, old_sampling_rate=1/sample_spacing, window=resample_window)
+        .pipe(interpolating_reindex, final_timevec)
+        .loc[slice(cursor_timevec[0],None),:]
+    )
+
+    return cursor_position
