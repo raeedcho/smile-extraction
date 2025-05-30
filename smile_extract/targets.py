@@ -29,10 +29,13 @@ def get_trial_targets(smile_trial: dict) -> pd.DataFrame:
         pd.DataFrame(
             smile_trial['Parameters']['TrialTargets']['window'],
             columns=['x','y','z','radius','height','depth'],
-            index = smile_trial['Parameters']['TrialTargets']['names']
+            index = pd.Index(
+                smile_trial['Parameters']['TrialTargets']['names'],
+                name='target',
+            )
         )
         .drop_duplicates()
-        [['x','y','z','radius']]
+        [['x','y','radius','height']]
     )
 
     return target_table
