@@ -47,6 +47,8 @@ def get_trial_task(smile_trial: dict) -> str:
         task = 'DCO'
     elif re.match(r'^R.T.C$', trial_name):
         task = 'DCO-catch'
+    elif re.match(r'^memory-guided.*$', trial_name):
+        task = 'DCO'
     else:
         task = trial_name
 
