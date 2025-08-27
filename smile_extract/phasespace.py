@@ -3,6 +3,9 @@ import numpy as np
 from scipy.signal import resample_poly
 import fractions
 from typing import Optional
+from .states import get_trial_state_transition_table, get_trial_events, get_state_target_table
+import logging
+logger = logging.getLogger(__name__)
 
 # Phasespace data
 def get_trial_hand_data(
@@ -52,10 +55,55 @@ def get_trial_hand_data(
     return marker_pos_interp
 
 def convert_phasespace_frame_to_time(framevec, smile_trial):
-    phasespace_sync_frame = smile_trial['TrialData']['Marker']['SyncParameters']['phasespaceFrame']
-    phasespace_sync_time = pd.to_timedelta(float(smile_trial['TrialData']['Marker']['SyncParameters']['startTime']),unit='ms')
+    sync_params = smile_trial['TrialData']['Marker']['SyncParameters']
+    if np.all(sync_params['phasespaceSyncData']):
+        phasespace_sync_frame, phasespace_sync_time = infer_phasespace_sync_from_data(smile_trial)
+    else:
+        phasespace_sync_frame = sync_params['phasespaceFrame']
+        phasespace_sync_time = pd.to_timedelta(float(sync_params['startTime']),unit='ms')
+
     phasespace_freq = smile_trial['TrialData']['Marker']['frequency']
     return pd.to_timedelta((framevec-phasespace_sync_frame)/phasespace_freq,unit='s') + phasespace_sync_time
+
+def infer_phasespace_sync_from_data(smile_trial) -> tuple[int, pd.Timedelta]:
+    '''
+    In the case where phasespace sync data is not available (e.g. rig 2 for Sulley),
+    we need to infer a synchronization point on the phasespace side from the marker
+    data and target location data, and the state transition times on the trial control side.
+    '''
+    state_table = get_trial_state_transition_table(smile_trial)
+    state_target_table = get_state_target_table(smile_trial)
+
+    assert state_table['pass condition'].values[0] == 'enter', "First state must be an 'enter' state."
+    ref_state = state_table.index[0]
+    reference_target = state_target_table.loc[ref_state]
+
+    # get frame where hand enters reference target
+    phasespace_data = smile_trial['TrialData']['Marker']['rawPositions']
+    marker_position = phasespace_data[:,1:4]
+    framevec = phasespace_data[:,4].astype(int)
+
+    relative_marker_pos = marker_position[:,:2].astype(np.float32) - reference_target[['x','y']].values.astype(np.float32)
+    marker_dist = np.linalg.norm(relative_marker_pos,axis=1)
+    try:
+        enter_idx = np.nonzero(marker_dist < reference_target['radius'].values[0])[0][0]
+    except IndexError:
+        logger.warning(f"Trial {smile_trial['Overview']['trialNumber']} Could not find hand entering reference target; using first frame as sync point.")
+        return framevec[0], pd.to_timedelta(0,unit='ms')
+    enter_frame = framevec[enter_idx]
+
+    trial_events = get_trial_events(smile_trial)
+    pass_state = state_table.loc[ref_state,'pass state']
+    try:
+        enter_time = trial_events.loc[pass_state,'time']
+    except KeyError:
+        logger.warning(f"Trial {smile_trial['Overview']['trialNumber']} Could not find pass event for reference target; using time of first frame as sync point.")
+        return framevec[0], pd.to_timedelta(0,unit='ms')
+    
+    if isinstance(enter_time, pd.Series):
+        enter_time = enter_time.iloc[0]
+
+    return enter_frame, enter_time
 
 def get_trial_eye_data(smile_trial: dict) -> pd.DataFrame:
     pass
