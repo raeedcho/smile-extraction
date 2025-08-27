@@ -26,6 +26,27 @@ def get_trial_state_transition_table(smile_trial: dict) -> pd.DataFrame:
 
     return state_transition_table
 
+def get_state_target_table(smile_trial: dict) -> pd.DataFrame:
+    state_target_table = (
+        pd.DataFrame(smile_trial['Parameters']['StateTable'])
+        .rename(columns={
+            'stateName':'state',
+        })
+        .assign(**{
+            'target': lambda x: x['Hand'].map(lambda y: y['targetName']),
+            'x': lambda x: x['Hand'].map(lambda y: y['window'][0]),
+            'y': lambda x: x['Hand'].map(lambda y: y['window'][1]),
+            'z': lambda x: x['Hand'].map(lambda y: y['window'][2]),
+            'radius': lambda x: x['Hand'].map(lambda y: y['window'][3]),
+            'height': lambda x: x['Hand'].map(lambda y: y['window'][4]),
+            'depth': lambda x: x['Hand'].map(lambda y: y['window'][5]),
+        })
+        .set_index(['state','target'])
+        [['x','y','z','radius','height','depth']]
+        .rename_axis('window',axis=1)
+    )
+    return state_target_table
+
 def get_trial_events(smile_trial: dict) -> pd.DataFrame:
     def get_state_name(state_id):
         if state_id == -1:
