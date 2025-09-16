@@ -1,0 +1,30 @@
+[build-system]
+requires = [
+    "setuptools>=61.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smile_extract"
+version = "0.1.0"
+description = "A package to extract and process neural and behavioral data collected by monkey host in the Batista lab"
+authors = [
+    { name = "Raeed Chowdhury" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "mat73",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
