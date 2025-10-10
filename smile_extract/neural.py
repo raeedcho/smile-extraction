@@ -3,6 +3,36 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
+def slice_by_time(data: pd.DataFrame, time_slice: slice, timecol: str='time') -> pd.DataFrame:
+    '''
+    Slice a DataFrame by a time slice.
+
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        The DataFrame to be sliced.
+    slicer : slice
+        The slice object defining the time range.
+    timecol : str, optional
+        The name of the time column in the DataFrame, default is 'time'.
+
+    Returns:
+    --------
+    pandas.DataFrame
+        The sliced DataFrame.
+    '''
+    
+    assert isinstance(data, pd.DataFrame), "data must be a pandas DataFrame"
+    assert timecol in data.index.names, f"'{timecol}' is not a valid index level in the DataFrame"
+    assert isinstance(time_slice, slice), "time_slice must be a slice object"
+
+    if isinstance(data.index, pd.MultiIndex):
+        num_indices_before_time: int = data.index.names.index(timecol)
+        multiindex_slicer: tuple[slice] = num_indices_before_time*(slice(None),) + (time_slice,)
+        return data.loc[multiindex_slicer,:]
+    else:
+        return data.loc[time_slice,:]
+
 def get_trial_spike_times(trial: dict, keep_sorted_only=True) -> pd.DataFrame:
     trial_spikes = (
         pd.DataFrame(
@@ -38,18 +68,39 @@ def bin_spikes(spike_times: pd.DataFrame, bin_size: str='10ms') -> pd.DataFrame:
     # possibly using .asfreq() before slicing to ensure that all timepoints are present
     spike_counts = (
         spike_times
+        .groupby('trial_id')
+        .apply(bin_spikes_in_trial, bin_size=bin_size)
+        .fillna(0)
+        .astype(int)
+    )
+    return spike_counts
+
+def bin_spikes_in_trial(spike_times: pd.DataFrame, bin_size: str='10ms') -> pd.DataFrame:
+    # need to add dummy non-spike at time 0 to ensure that time 0 is the first bin edge
+    dummy_spike = (
+        spike_times
+        .iloc[[0],:]
+        .assign(
+            channel=-1,
+            timestamp=pd.to_timedelta('0s'),
+            spikes=0,
+        )
+    )
+    spike_counts = (
+        spike_times
         .assign(spikes=1)
+        .pipe(lambda df: pd.concat([dummy_spike, df], axis=0))
         .set_index(['channel','unit','timestamp'],append=True)
         .reset_index(level='snippet_id',drop=True)
         .squeeze()
         .unstack(level=['channel','unit'],fill_value=0)
-        .sort_index(level=['trial_id','timestamp'],axis=0)
+        .sort_index(level=['timestamp'],axis=0)
         .sort_index(level=['channel','unit'],axis=1)
-        .loc[(slice(None),slice('0s',None)),:]
-        .groupby('trial_id')
+        .pipe(slice_by_time, time_slice=slice(pd.to_timedelta('0s'),None), timecol='timestamp')
         .resample(bin_size,level='timestamp')
         .sum()
         .rename_axis(index={'timestamp':'time'})
+        .drop(columns=-1) # drop dummy channel
     )
 
     return spike_counts
