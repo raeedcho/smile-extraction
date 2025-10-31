@@ -3,35 +3,38 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
-def slice_by_time(data: pd.DataFrame, time_slice: slice, timecol: str='time') -> pd.DataFrame:
-    '''
-    Slice a DataFrame by a time slice.
+try:
+    from trialframe import slice_by_time
+except Exception:  # pragma: no cover - fallback for environments without trialframe installed
+    def slice_by_time(data: pd.DataFrame, time_slice: slice, timecol: str='time') -> pd.DataFrame:
+        '''
+        Slice a DataFrame by a time slice.
 
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        The DataFrame to be sliced.
-    slicer : slice
-        The slice object defining the time range.
-    timecol : str, optional
-        The name of the time column in the DataFrame, default is 'time'.
+        Parameters:
+        -----------
+        data : pandas.DataFrame
+            The DataFrame to be sliced.
+        slicer : slice
+            The slice object defining the time range.
+        timecol : str, optional
+            The name of the time column in the DataFrame, default is 'time'.
 
-    Returns:
-    --------
-    pandas.DataFrame
-        The sliced DataFrame.
-    '''
-    
-    assert isinstance(data, pd.DataFrame), "data must be a pandas DataFrame"
-    assert timecol in data.index.names, f"'{timecol}' is not a valid index level in the DataFrame"
-    assert isinstance(time_slice, slice), "time_slice must be a slice object"
+        Returns:
+        --------
+        pandas.DataFrame
+            The sliced DataFrame.
+        '''
 
-    if isinstance(data.index, pd.MultiIndex):
-        num_indices_before_time: int = data.index.names.index(timecol)
-        multiindex_slicer: tuple[slice] = num_indices_before_time*(slice(None),) + (time_slice,)
-        return data.loc[multiindex_slicer,:]
-    else:
-        return data.loc[time_slice,:]
+        assert isinstance(data, pd.DataFrame), "data must be a pandas DataFrame"
+        assert timecol in data.index.names, f"'{timecol}' is not a valid index level in the DataFrame"
+        assert isinstance(time_slice, slice), "time_slice must be a slice object"
+
+        if isinstance(data.index, pd.MultiIndex):
+            num_indices_before_time: int = data.index.names.index(timecol)
+            multiindex_slicer: tuple[slice] = num_indices_before_time*(slice(None),) + (time_slice,)
+            return data.loc[multiindex_slicer,:]
+        else:
+            return data.loc[time_slice,:]
 
 def get_trial_spike_times(trial: dict, keep_sorted_only=True) -> pd.DataFrame:
     trial_spikes = (
