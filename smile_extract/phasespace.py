@@ -4,6 +4,7 @@ from scipy.signal import resample_poly
 import fractions
 from typing import Optional
 from .states import get_trial_state_transition_table, get_trial_events, get_state_target_table
+from .targets import get_trial_targets
 import logging
 logger = logging.getLogger(__name__)
 
@@ -12,11 +13,17 @@ def get_trial_hand_data(
         smile_trial: dict,
         resample_window: tuple=('kaiser',20.0),
         final_sampling_rate: float=1000,
-        reference_loc: Optional[np.ndarray] = None,
+        reference_target: Optional[str] = None,
         **kwargs,
     ) -> pd.DataFrame:
 
-    if reference_loc is None:
+    if reference_target is not None:
+        target = (
+            get_trial_targets(smile_trial)
+            .loc[reference_target]
+        )
+        reference_loc = np.array([target['x'], target['y'], 0])
+    else:
         reference_loc = np.array([0,0,0])
 
     phasespace_data = smile_trial['TrialData']['Marker']['rawPositions']
