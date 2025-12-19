@@ -52,7 +52,8 @@ def compose_from_frames(meta: pd.DataFrame, trialframe_dict: dict[str,pd.DataFra
         .reset_index(level='time')
         .assign(**meta)
         .set_index('time',append=True)
-        [metacols + trialframe_signals]
+        .set_index(metacols,append=True)
+        [trialframe_signals]
     )
     return trialframe
 
