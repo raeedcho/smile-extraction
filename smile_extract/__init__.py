@@ -5,4 +5,3 @@ from .phasespace import *
 from .states import *
 from .targets import *
 from .trial_info import *
-from .smoothing import *
