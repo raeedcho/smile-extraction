@@ -132,7 +132,7 @@ class TestGetTrialEyeData:
         )
         result = get_trial_eye_data(trial)
         assert result.empty
-        assert list(result.columns) == ['eye_x', 'eye_y', 'pupil']
+        assert list(result.columns) == ['x', 'y', 'pupil']
 
     def test_no_analog_data_returns_empty(self):
         """If no analogData, return empty DataFrame."""
