@@ -68,7 +68,7 @@ class TestGetTrialEyeData:
         trial = _make_smile_trial(n_samples=100)
         result = get_trial_eye_data(trial, final_sampling_rate=1000)
         assert isinstance(result, pd.DataFrame)
-        assert list(result.columns) == ['eye_x', 'eye_y', 'pupil']
+        assert list(result.columns) == ['x', 'y', 'pupil']
         assert result.index.name == 'time'
         assert result.columns.name == 'channel'
         assert len(result) == 100
@@ -78,21 +78,6 @@ class TestGetTrialEyeData:
         result = get_trial_eye_data(trial, final_sampling_rate=100)
         # Resampled from 1kHz to 100Hz: ~100 samples
         assert len(result) == pytest.approx(100, abs=5)
-
-    def test_y_axis_flip(self):
-        """Left Eye Y should be negated."""
-        n = 100
-        channel_names = ['Left Eye X', 'Left Eye Y', 'Left Pupil']
-        analog_data = np.ones((n, 3)) * 5.0
-        trial = _make_smile_trial(
-            n_samples=n, channel_names=channel_names, analog_data=analog_data,
-        )
-        result = get_trial_eye_data(trial, final_sampling_rate=1000)
-        # eye_y should be -5.0 (flipped)
-        assert result['eye_y'].iloc[50] == pytest.approx(-5.0)
-        # eye_x and pupil should stay positive
-        assert result['eye_x'].iloc[50] == pytest.approx(5.0)
-        assert result['pupil'].iloc[50] == pytest.approx(5.0)
 
     def test_blink_detection(self):
         """Samples where all eye signals ≤ threshold should become NaN."""
@@ -150,7 +135,7 @@ class TestGetTrialEyeData:
         )
         result = get_trial_eye_data(trial, final_sampling_rate=1000)
         assert len(result) == n
-        assert list(result.columns) == ['eye_x', 'eye_y', 'pupil']
+        assert list(result.columns) == ['x', 'y', 'pupil']
 
     def test_timedelta_index_starts_at_0(self):
         """Time index should start at 0 (matching pipeline convention)."""

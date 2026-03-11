@@ -131,13 +131,13 @@ def get_analog_channel_names(smile_trial: dict) -> list[str]:
 # The first available eye (left, then right) will be used.
 EYE_CHANNEL_SETS = [
     {
-        'eye_x': 'Left Eye X',
-        'eye_y': 'Left Eye Y',
+        'x': 'Left Eye X',
+        'y': 'Left Eye Y',
         'pupil': 'Left Pupil',
     },
     {
-        'eye_x': 'Right Eye X',
-        'eye_y': 'Right Eye Y',
+        'x': 'Right Eye X',
+        'y': 'Right Eye Y',
         'pupil': 'Right Pupil',
     },
 ]
@@ -146,7 +146,7 @@ EYE_CHANNEL_SETS = [
 def get_trial_eye_data(
         smile_trial: dict,
         final_sampling_rate: float = 1000,
-        blink_threshold: float = -9,
+        blink_threshold: float = -2,
         resample_window: tuple = ('kaiser', 20.0),
         **kwargs,
 ) -> pd.DataFrame:
@@ -165,7 +165,7 @@ def get_trial_eye_data(
 
     Returns:
         DataFrame with ``TimedeltaIndex(name='time')`` and columns
-        ``['eye_x', 'eye_y', 'pupil']`` (column index named ``'channel'``).
+        ``['x', 'y', 'pupil']`` (column index named ``'channel'``).
         Returns an empty DataFrame if no eye channels are found.
     """
     empty = pd.DataFrame(
@@ -195,6 +195,7 @@ def get_trial_eye_data(
     for candidate in EYE_CHANNEL_SETS:
         if all(name in channel_names for name in candidate.values()):
             channel_map = candidate
+            logger.debug('Found complete set of eye channels: %s', channel_map)
             break
 
     if channel_map is None:
@@ -212,32 +213,35 @@ def get_trial_eye_data(
         out_name: channel_names.index(smile_name)
         for out_name, smile_name in channel_map.items()
     }
+    logger.debug('Using channel mapping: %s', col_indices)
 
-    eye_df = pd.DataFrame(
-        {out_name: analog_data[:, idx] for out_name, idx in col_indices.items()},
-        index=pd.timedelta_range(
-            start=pd.to_timedelta(0, unit='ms'),
-            periods=n_samples,
-            freq=pd.to_timedelta(1 / native_rate, unit='s'),
-            name='time',
-        ),
+    eye_df = (
+        pd.DataFrame(
+            {out_name: analog_data[:, idx] for out_name, idx in col_indices.items()},
+            index=pd.timedelta_range(
+                start=pd.to_timedelta(0, unit='ms'),
+                periods=n_samples,
+                freq=pd.to_timedelta(1 / native_rate, unit='s'),
+                name='time',
+            ),
+        )
+        .rename_axis(columns='channel')
     )
-    eye_df.columns.name = 'channel'
 
     # --- blink detection: mask where ALL eye signals ≤ threshold ---
-    blink_mask = (eye_df <= blink_threshold).all(axis=1)
+    blink_mask = (eye_df[['x','y']] <= blink_threshold).all(axis=1)
     eye_df.loc[blink_mask] = np.nan
+    logger.debug('Detected %d blink samples in trial based on threshold %.2f', blink_mask.sum(), blink_threshold)
 
-    # --- flip Y axis (phasespace convention) ---
-    eye_df['eye_y'] = -eye_df['eye_y']
+    # --- flip Y axis (phasespace convention for data collected before 2023-10-01) ---
+    # eye_df['y'] = -eye_df['y']
 
     # --- resample if needed ---
-    if final_sampling_rate != native_rate:
-        # Drop NaN rows before resampling to avoid spreading NaN, then reinsert
-        eye_df = (
-            eye_df
-            .pipe(sig_resample, final_sampling_rate, old_sampling_rate=native_rate, window=resample_window)
-        )
+    # Drop NaN rows before resampling to avoid spreading NaN, then reinsert
+    eye_df = (
+        eye_df
+        .pipe(sig_resample, final_sampling_rate, old_sampling_rate=native_rate, window=resample_window)
+    )
 
     # --- ensure evenly-spaced index ---
     final_timevec = pd.timedelta_range(
@@ -264,6 +268,9 @@ def sig_resample(df: pd.DataFrame, new_sampling_rate: float, old_sampling_rate: 
         old_sampling_rate = 1/old_timevec_period
 
     resample_factor = fractions.Fraction.from_float(new_sampling_rate / old_sampling_rate).limit_denominator()
+    if resample_factor.numerator == resample_factor.denominator:
+        return df
+
     new_signal = resample_poly(
         df.values,
         resample_factor.numerator,
